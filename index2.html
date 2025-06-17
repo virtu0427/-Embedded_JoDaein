@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>별이 빛나는 밤 - 인터랙티브</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="canvas" width="1000" height="791"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const stars = [
+  { x: 865, y: 120 }, { x: 765, y: 100 }, { x: 665, y: 115 },
+  { x: 610, y: 130 }, { x: 820, y: 270 }, { x: 705, y: 310 },
+  { x: 465, y: 170 }, { x: 390, y: 220 }, { x: 325, y: 115 },
+  { x: 280, y: 230 }, { x: 390, y: 450 }, { x: 625, y: 460 }
+];
+
+// 이미지 초기화
+const bgImg = new Image();
+bgImg.src = "images/background.png";  // 정확한 경로
+const starImgs = [];
+
+let loaded = 0;
+for (let i = 1; i <= 12; i++) {
+  const img = new Image();
+  img.src = `images/star${i}.png`;   // 정확한 경로
+  img.onload = () => {
+    loaded++;
+    if (loaded === 13) start();  // 12개 + 배경
+  };
+  starImgs.push(img);
+}
+bgImg.onload = () => {
+  loaded++;
+  if (loaded === 13) start();
+};
+
+// WebSocket 연결
+let distance = 60, light = 512;
+let ws;
+try {
+  ws = new WebSocket("ws://localhost:8080");
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    distance = data.distance;
+    light = data.light;
+  };
+} catch (err) {
+  console.error("WebSocket 연결 실패:", err);
+}
+
+function drawRotatedImage(img, x, y, angle, scale, alpha) {
+  const w = img.width * scale;
+  const h = img.height * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function start() {
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+    const time = Date.now();
+    const alpha = Math.min(1, (1023 - light) / 600 + 0.3);
+    const scale = Math.max(0.5, 1.5 - distance / 100);
+
+    for (let i = 0; i < stars.length; i++) {
+      const angle = time / 1000 + i * 0.2;
+      drawRotatedImage(starImgs[i], stars[i].x, stars[i].y, angle, scale, alpha);
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+</script>
+</body>
+</html>
