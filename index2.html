@@ -16,22 +16,25 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const stars = [
-  { x: 865, y: 120 }, { x: 765, y: 100 }, { x: 665, y: 115 },
-  { x: 610, y: 130 }, { x: 820, y: 270 }, { x: 705, y: 310 },
-  { x: 465, y: 170 }, { x: 390, y: 220 }, { x: 325, y: 115 },
-  { x: 280, y: 230 }, { x: 390, y: 450 }, { x: 625, y: 460 }
+  { x: 910, y: 136 }, { x: 351, y: 419 }, { x: 130, y: 381 },
+  { x: 44, y: 356 }, { x: 324, y: 257 }, { x: 706, y: 185 },
+  { x: 409, y: 54 }, { x: 342, y: 32 }, { x: 230, y: 27 },
+  { x: 236, y: 136 }, { x: 106, y: 34 }, { x: 609, y: 70}
 ];
+
 
 // 이미지 초기화
 const bgImg = new Image();
-bgImg.src = "images/background.png";  // 정확한 경로
+bgImg.src = "images/Background.png";  // 정확한 경로
 const starImgs = [];
+const baseGlowSize = [];
 
 let loaded = 0;
 for (let i = 1; i <= 12; i++) {
   const img = new Image();
   img.src = `images/star${i}.png`;   // 정확한 경로
   img.onload = () => {
+    baseGlowSize[i-1]=Math.max(img.width, img.height)*0.6;
     loaded++;
     if (loaded === 13) start();  // 12개 + 배경
   };
@@ -56,17 +59,34 @@ try {
   console.error("WebSocket 연결 실패:", err);
 }
 
+function sleep(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function drawRotatedImage(img, x, y, angle, scale, alpha) {
+  if (scale < 1.0)
+  {
+    scale = 1.0;
+  }
   const w = img.width * scale;
   const h = img.height * scale;
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
-  ctx.globalAlpha = 1;
 }
+
+function drawGlow(x, y, size, intensity) {
+  const radius = size * intensity;
+  const grd = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  grd.addColorStop(0, `rgba(255, 255, 255, ${0.5 * intensity})`);
+  grd.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.beginPath();
+  ctx.fillStyle = grd;
+  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+  ctx.fill();
+    }
 
 function start() {
   function draw() {
@@ -74,12 +94,15 @@ function start() {
     ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
     const time = Date.now();
-    const alpha = Math.min(1, (1023 - light) / 600 + 0.3);
+    const glowIntensity = Math.min(1, Math.max(0, (600 - light) / 510));
+    const alpha = Math.min(1, Math.max(0.2, (250 - light /200)));
     const scale = Math.max(0.5, 1.5 - distance / 100);
 
     for (let i = 0; i < stars.length; i++) {
       const angle = time / 1000 + i * 0.2;
+      const glowsize = baseGlowSize[i] * scale;
       drawRotatedImage(starImgs[i], stars[i].x, stars[i].y, angle, scale, alpha);
+      drawGlow(stars[i].x, stars[i].y, glowsize, glowIntensity);
     }
 
     requestAnimationFrame(draw);
