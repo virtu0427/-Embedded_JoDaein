@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>별이 빛나는 밤 - 인터랙티브</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="canvas" width="1000" height="791"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// 별 좌표
+const starPositions = [
+  { x: 865, y: 120 }, { x: 765, y: 100 }, { x: 665, y: 115 },
+  { x: 610, y: 130 }, { x: 820, y: 270 }, { x: 705, y: 310 },
+  { x: 465, y: 170 }, { x: 390, y: 220 }, { x: 325, y: 115 },
+  { x: 280, y: 230 }, { x: 390, y: 450 }
+];
+
+// 이미지 객체들
+const bgImg = new Image();
+bgImg.src = "images/background.png";
+
+// 별 이미지들을 순서대로 불러옴
+const starImgs = [];
+for (let i = 1; i <= 11; i++) {
+  const img = new Image();
+  img.src = `images/star${i}.png`;
+  starImgs.push(img);
+}
+
+// 센서값 초기화
+let distance = 60;
+let light = 512;
+
+// WebSocket 연동
+const ws = new WebSocket("ws://127.0.0.1:8080");
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  distance = data.distance;
+  light = data.light;
+};
+
+// 회전 + 스케일 + 알파 별 개별 그리기 함수
+function drawRotatedImage(img, x, y, angle, scale, alpha) {
+  const w = img.width * scale;
+  const h = img.height * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// 메인 루프
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+  const time = Date.now();
+  const baseRotation = time / 1000;
+  const alpha = Math.min(1, (1023 - light) / 600 + 0.3);
+  const scale = Math.max(0.5, 1.5 - distance / 100);
+
+  for (let i = 0; i < 11; i++) {
+    const angle = baseRotation + i * 0.3;
+    drawRotatedImage(starImgs[i], starPositions[i].x, starPositions[i].y, angle, scale, alpha);
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// 모든 이미지가 로딩되면 시작
+Promise.all(starImgs.map(img => new Promise(res => img.onload = res)))
+  .then(() => {
+    bgImg.onload = () => animate();
+  });
+</script>
+</body>
+</html>
