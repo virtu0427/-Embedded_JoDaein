@@ -1,0 +1,4 @@
+asyncio
+websockets>=12.0
+RPi.GPIO
+spidev
